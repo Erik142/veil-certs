@@ -1,0 +1,14 @@
+grpc:
+  port: 50051
+
+ca:
+  cert_path: "ca.crt"
+  key_path: "ca.key"
+  passphrase: "" # Can be overridden by env var VEILCERTS_CA_PASSPHRASE
+  encrypt_key: false
+  common_name: "NebulaCA"
+  duration_days: 3650 # 10 years
+  subnet: "10.10.0.0/16"
+
+log:
+  level: "info" # debug, info, warn, error
