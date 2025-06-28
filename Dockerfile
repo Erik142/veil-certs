@@ -26,6 +26,7 @@ WORKDIR /app
 
 # Copy the built executable from the builder stage
 COPY --from=builder /app/server .
+COPY --from=builder /app/configs/config.yaml ./configs/config.yaml
 
 # Expose the port the server listens on (assuming default gRPC port 50051)
 EXPOSE 50051
