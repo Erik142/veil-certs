@@ -4,14 +4,14 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"fmt"
-	"net/netip"
+	"net"
 	"time"
 
 	"github.com/Erik142/veil-certs/pkg/ipmanager"
 	"github.com/Erik142/veil-certs/pkg/ipmanager/store/inmem"
 	"github.com/Erik142/veil-certs/pkg/keyprovider"
 	"github.com/sirupsen/logrus"
-	"github.com/slackhq/nebula/cert" // Import for Nebula certificate structures
+	"github.com/slackhq/nebula/cert"
 )
 
 // CertificatePair holds a certificate and its private key in PEM format.
@@ -37,12 +37,8 @@ func NewCertGenerator(subnet string) (*CertGenerator, error) {
 }
 
 // GenerateCACertificate generates a self-signed Nebula-compatible CA certificate and private key.
-// name: The common name for the CA (e.g., "MyNebulaCA").
-// duration: The validity duration for the CA certificate.
-// encryptKey: If true, the CA private key will be encrypted with the provided passphrase.
-// passphraseProvider: Provides the passphrase for encrypting/decrypting the CA key.
-func (self *CertGenerator) GenerateCACertificate(name string, duration time.Duration, encryptKey bool, passphraseProvider keyprovider.KeyPassphraseProvider, subnet string) (*CertificatePair, error) {
-	self.log.WithFields(logrus.Fields{
+func (c *CertGenerator) GenerateCACertificate(name string, duration time.Duration, encryptKey bool, passphraseProvider keyprovider.KeyPassphraseProvider, subnet string) (*CertificatePair, error) {
+	c.log.WithFields(logrus.Fields{
 		"name":       name,
 		"duration":   duration,
 		"encryptKey": encryptKey,
@@ -53,125 +49,114 @@ func (self *CertGenerator) GenerateCACertificate(name string, duration time.Dura
 		return nil, fmt.Errorf("failed to generate CA keypair: %v", err)
 	}
 
-	prefix, err := netip.ParsePrefix(subnet)
-
+	_, ipNet, err := net.ParseCIDR(subnet)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse subnet: %v", err)
 	}
 
-	caTemplate := cert.TBSCertificate{
+	caDetails := cert.NebulaCertificateDetails{
 		Name:      name,
-		Networks:  []netip.Prefix{prefix},
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().Add(duration),
-		IsCA:      true, // This is a CA
-		Version:   cert.Version1,
+		IsCA:      true,
 		PublicKey: caPub,
+		Curve:     cert.Curve_CURVE25519,
+		Subnets:   []*net.IPNet{ipNet},
 	}
 
-	caCert, err := caTemplate.Sign(nil, cert.Curve_CURVE25519, caKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate CA: %w", err)
+	caCert := &cert.NebulaCertificate{
+		Details: caDetails,
 	}
 
-	caCertPEM, err := caCert.MarshalPEM()
+	if err := caCert.Sign(caDetails.Curve, caKey); err != nil {
+		return nil, fmt.Errorf("failed to sign CA certificate: %v", err)
+	}
+
+	caCertPEM, err := caCert.MarshalToPEM()
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode CA cert: %w", err)
 	}
 
-	caKeyPEM := cert.MarshalPrivateKeyToPEM(cert.Curve_CURVE25519, caKey)
+	caKeyPEM := cert.MarshalSigningPrivateKey(caDetails.Curve, caKey)
 
-	self.log.Info("CA certificate generated successfully.")
+	c.log.Info("CA certificate generated successfully.")
 	return &CertificatePair{
 		CertPEM: caCertPEM,
 		KeyPEM:  caKeyPEM,
 	}, nil
 }
 
-// GenerateHostCertificate generates a Nebula-compatible host certificate and private key,
-// signed by the provided CA certificate and key.
-// caCertPEM: PEM-encoded CA certificate.
-// caKeyPEM: PEM-encoded CA private key.
-// passphraseProvider: Provides the passphrase for decrypting the CA key if it's encrypted.
-// hostName: The common name for the host (e.g., "my-server-1").
-// hostIP: The Nebula IP address for the host in CIDR format (e.g., "192.168.100.10/24").
-// groups: A slice of strings representing Nebula groups.
-// duration: The validity duration for the host certificate.
-func (self *CertGenerator) GenerateHostCertificate(caCertPEM, caKeyPEM []byte, passphraseProvider keyprovider.KeyPassphraseProvider, hostName, hostIP string, groups []string, duration time.Duration) (*CertificatePair, error) {
-	self.log.WithFields(logrus.Fields{
+// GenerateHostCertificateFromPublicKey generates a Nebula-compatible host certificate from a public key.
+func (c *CertGenerator) GenerateHostCertificateFromPublicKey(caCertPEM, caKeyPEM []byte, passphraseProvider keyprovider.KeyPassphraseProvider, hostName, hostIP string, groups []string, duration time.Duration, publicKey []byte) ([]byte, error) {
+	c.log.WithFields(logrus.Fields{
 		"hostname": hostName,
 		"ip_cidr":  hostIP,
 		"groups":   groups,
 		"duration": duration,
-	}).Info("Received request to generate host certificate.")
-
-	var prefix netip.Prefix
+	}).Info("Received request to generate host certificate from public key.")
 
 	// Parse CA certificate
-	caCert, _, err := cert.UnmarshalCertificateFromPEM(caCertPEM)
-
+	caCert, _, err := cert.UnmarshalNebulaCertificateFromPEM(caCertPEM)
 	if err != nil {
 		return nil, err
 	}
 
-	// Generate a new keypair for the host
-	hostPub, hostKey, err := ed25519.GenerateKey(rand.Reader)
+	// Parse CA private key
+	caKey, _, _, err := cert.UnmarshalSigningPrivateKey(caKeyPEM)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate host keypair: %v", err)
+		return nil, fmt.Errorf("failed to parse CA private key: %v", err)
 	}
+
+	var ip *net.IPNet
+	var subnet *net.IPNet
 
 	if hostIP == "" {
-		lease, err := self.ipManager.RequestIP(hostName, duration)
+		lease, err := c.ipManager.RequestIP(hostName, duration)
 
 		if err != nil {
 			return nil, err
 		}
 
-		prefix, err = lease.Prefix()
-
-		if err != nil {
+		if subnet, err = lease.IPNet(); err != nil {
 			return nil, err
 		}
 
-		self.log.Infof("Next IP from IP store: %s", prefix.String())
+		c.log.Infof("Received dynamic IP address: %s", lease.String())
 	} else {
-		prefix, err = netip.ParsePrefix(hostIP)
-
-		if err != nil {
-			return nil, err
+		if _, subnet, err = net.ParseCIDR(hostIP); err != nil {
+			return nil, fmt.Errorf("failed to parse host IP: %v", err)
 		}
 	}
+
+	ip = subnet
 
 	// Create host certificate details from the request
-	details := cert.TBSCertificate{
+	details := cert.NebulaCertificateDetails{
 		Name:      hostName,
-		Networks:  []netip.Prefix{prefix},
-		Groups:    groups,
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().Add(duration),
-		IsCA:      false, // This is a host certificate, not a CA
-		Version:   cert.Version1,
-		PublicKey: hostPub,
+		IsCA:      false,
+		PublicKey: publicKey,
+		Curve:     cert.Curve_CURVE25519,
+		Groups:    groups,
+		Ips:       []*net.IPNet{ip},
+		Subnets:   []*net.IPNet{subnet},
 	}
 
-	// Sign the new certificate using the CA
-	signedCert, err := details.Sign(caCert, cert.Curve_CURVE25519, hostKey)
-	if err != nil {
+	hostCert := &cert.NebulaCertificate{
+		Details: details,
+	}
+
+	if err := hostCert.Sign(caCert.Details.Curve, caKey); err != nil {
 		return nil, fmt.Errorf("failed to sign host certificate: %v", err)
 	}
 
-	// Encode the certificate and key into Nebula's PEM-style format
-	hostCertPEM, err := signedCert.MarshalPEM()
+	// Encode the certificate to PEM format
+	certPEM, err := hostCert.MarshalToPEM()
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode host cert: %v", err)
+		return nil, fmt.Errorf("failed to encode certificate: %v", err)
 	}
 
-	hostKeyPEM := cert.MarshalPrivateKeyToPEM(cert.Curve_CURVE25519, hostKey)
-
-	self.log.Info("Host certificate generated successfully.")
-
-	return &CertificatePair{
-		CertPEM: hostCertPEM,
-		KeyPEM:  hostKeyPEM,
-	}, nil
+	c.log.Info("Host certificate generated successfully.")
+	return certPEM, nil
 }

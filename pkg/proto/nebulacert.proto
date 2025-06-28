@@ -13,11 +13,10 @@ message GenerateHostCertificateRequest {
   string hostname = 1;
   string ip_cidr = 2;
   repeated string groups = 3;
-  int64 duration_seconds =
-      4; // Duration in seconds for the certificate validity
+  int64 duration_seconds = 4;
+  bytes public_key = 5;
 }
 
 message GenerateHostCertificateResponse {
   bytes cert_pem = 1; // PEM-encoded host certificate
-  bytes key_pem = 2;  // PEM-encoded host private key
 }

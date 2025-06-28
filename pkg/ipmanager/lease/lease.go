@@ -30,3 +30,18 @@ func (self Lease) Prefix() (netip.Prefix, error) {
 
 	return netip.ParsePrefix(ipstr)
 }
+
+func (self Lease) IPNet() (*net.IPNet, error) {
+	ip, subnet, err := net.ParseCIDR(self.String())
+	subnet.IP = ip
+
+	return subnet, err
+}
+
+func (self Lease) String() string {
+	if self.IPAddress.String() == "" || self.bits == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf("%s/%d", self.IPAddress, self.bits)
+}
