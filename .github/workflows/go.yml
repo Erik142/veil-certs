@@ -1,0 +1,44 @@
+name: Go CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Install Protobuf Compiler
+      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+    - name: Generate Protobuf Go Code
+      run: |
+        go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+        go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+        export PATH=$PATH:$(go env GOBIN)
+        protoc --go_out=. --go_opt=paths=source_relative \
+               --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+               ./pkg/proto/nebulacert.proto
+
+    - name: Download Go Modules
+      run: go mod tidy
+
+    - name: Build Client
+      run: go build -o ./bin/client ./cmd/client
+
+    - name: Build Server
+      run: go build -o ./bin/nebulacert-server ./cmd/server
+
+    - name: Run Tests
+      run: go test ./...
