@@ -26,6 +26,7 @@ func main() {
 	viper.AddConfigPath("./configs") // Path to look for the config file
 	viper.AutomaticEnv()             // Read environment variables
 	viper.SetEnvPrefix("veilcerts")  // Environment variables should be like VEILCERTS_GRPC_PORT
+	viper.SetDefault("log.level", "info")
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
