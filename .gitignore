@@ -1,3 +1,4 @@
 pkg/proto/*.go
+!pkg/proto/dummy.go
 *.crt
 *.key
