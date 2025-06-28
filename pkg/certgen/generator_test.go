@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/Erik142/veil-certs/pkg/ipmanager/lease"
+	"github.com/slackhq/nebula/cert"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/slackhq/nebula/cert"
 )
 
 // MockKeyPassphraseProvider is a mock implementation of keyprovider.KeyPassphraseProvider
@@ -111,7 +111,7 @@ func TestGenerateHostCertificateFromPublicKey(t *testing.T) {
 	// Test with dynamic IP
 	expectedIP := net.ParseIP("192.168.100.10")
 	_, expectedSubnet, _ := net.ParseCIDR("192.168.100.10/32")
-		lease := lease.New(expectedIP, "test-host", time.Now().Add(time.Hour), 32)
+	lease := lease.New(expectedIP, "test-host", time.Now().Add(time.Hour), 32)
 	mockIPManager.On("RequestIP", "test-host", mock.AnythingOfType("time.Duration")).Return(&lease, nil).Once()
 
 	hostCertPEM, err := gen.GenerateHostCertificateFromPublicKey(
@@ -143,7 +143,8 @@ func TestGenerateHostCertificateFromPublicKey(t *testing.T) {
 
 	// Test with static IP
 	staticIP := "192.168.100.20/24"
-	_, staticSubnet, _ := net.ParseCIDR(staticIP)
+	subnetIP, staticSubnet, _ := net.ParseCIDR(staticIP)
+	staticSubnet.IP = subnetIP
 
 	hostCertPEM, err = gen.GenerateHostCertificateFromPublicKey(
 		caCertPair.CertPEM,
@@ -168,3 +169,4 @@ func TestGenerateHostCertificateFromPublicKey(t *testing.T) {
 	assert.Len(t, hostCert.Details.Subnets, 1)
 	assert.Equal(t, staticSubnet.String(), hostCert.Details.Subnets[0].String())
 }
+

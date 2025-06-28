@@ -128,9 +128,13 @@ func (c *CertGenerator) GenerateHostCertificateFromPublicKey(caCertPEM, caKeyPEM
 
 		c.log.Infof("Received dynamic IP address: %s", lease.String())
 	} else {
-		if _, subnet, err = net.ParseCIDR(hostIP); err != nil {
+		var realIp net.IP
+
+		if realIp, subnet, err = net.ParseCIDR(hostIP); err != nil {
 			return nil, fmt.Errorf("failed to parse host IP: %v", err)
 		}
+
+		subnet.IP = realIp
 	}
 
 	ip = subnet
