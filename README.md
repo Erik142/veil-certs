@@ -1,7 +1,5 @@
 # veil-certs: Automated Nebula Certificate & IP Management
 
-![Nebula Logo](https://raw.githubusercontent.com/slackhq/nebula/master/docs/nebula_logo.png)
-
 `veil-certs` is a comprehensive solution designed to streamline the management of certificates and IP addresses for your [Nebula](https://github.com/slackhq/nebula) overlay networks. It provides a robust server-side component for automated certificate generation and IP lease management, complemented by a client for seamless interaction.
 
 Say goodbye to manual certificate signing and IP allocation headaches. `veil-certs` empowers you to build and maintain dynamic, secure, and scalable Nebula networks with ease.
