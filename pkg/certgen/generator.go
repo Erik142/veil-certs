@@ -21,9 +21,14 @@ type CertificatePair struct {
 }
 
 // CertGenerator provides methods to generate Nebula-compatible certificates.
+type CertificateGenerator interface {
+	GenerateCACertificate(name string, duration time.Duration, encryptKey bool, passphraseProvider keyprovider.KeyPassphraseProvider, subnet string) (*CertificatePair, error)
+	GenerateHostCertificateFromPublicKey(caCertPEM, caKeyPEM []byte, passphraseProvider keyprovider.KeyPassphraseProvider, hostName, hostIP string, groups []string, duration time.Duration, publicKey []byte) ([]byte, error)
+}
+
 type CertGenerator struct {
 	log       *logrus.Entry
-	ipManager *ipmanager.IPLeaseManager
+	ipManager ipmanager.IPManager
 }
 
 // NewCertGenerator creates a new CertGenerator instance.

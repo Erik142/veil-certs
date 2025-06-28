@@ -19,12 +19,12 @@ type CertificateServiceServer struct {
 	pb.UnimplementedCertificateServiceServer // Required for forward compatibility
 	CAStore                                  castore.CAStore
 	PassphraseProvider                       keyprovider.KeyPassphraseProvider
-	Generator                                *certgen.CertGenerator
+	Generator                                certgen.CertificateGenerator
 	log                                      *logrus.Entry
 }
 
 // NewCertificateServiceServer creates a new CertificateServiceServer instance.
-func NewCertificateServiceServer(caStore castore.CAStore, passphraseProvider keyprovider.KeyPassphraseProvider, generator *certgen.CertGenerator) *CertificateServiceServer {
+func NewCertificateServiceServer(caStore castore.CAStore, passphraseProvider keyprovider.KeyPassphraseProvider, generator certgen.CertificateGenerator) *CertificateServiceServer {
 	return &CertificateServiceServer{
 		CAStore:            caStore,
 		PassphraseProvider: passphraseProvider,

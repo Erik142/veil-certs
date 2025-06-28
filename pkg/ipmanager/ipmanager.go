@@ -6,8 +6,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/Erik142/veil-certs/pkg/ipmanager/lease" // <-- Import the new storage package
-	"github.com/Erik142/veil-certs/pkg/ipmanager/store" // <-- Import the new storage package
+	"github.com/Erik142/veil-certs/pkg/ipmanager/lease"
+	"github.com/Erik142/veil-certs/pkg/ipmanager/store"
 )
 
 // Errors are now more focused on logic, not storage results.
@@ -17,6 +17,14 @@ var (
 	ErrInvalidCIDR    = errors.New("invalid CIDR notation")
 	ErrLeaseNotHeld   = errors.New("no lease found for the given host ID")
 )
+
+// IPManager defines the interface for managing IP leases.
+type IPManager interface {
+	RequestIP(hostID string, requestedLeaseTime time.Duration) (*lease.Lease, error)
+	ReleaseIP(hostID string, ip net.IP) error
+	RenewLease(hostID string, ip net.IP, requestedLeaseTime time.Duration) (*lease.Lease, error)
+	GetLease(hostID string) (*lease.Lease, error)
+}
 
 // IPLeaseManager manages the logic of leasing IPs from a subnet.
 // It is stateless and relies on a LeaseStore for all persistence.
@@ -28,7 +36,7 @@ type IPLeaseManager struct {
 
 // NewIPLeaseManager creates a new manager.
 // It requires a LeaseStore to handle persistence.
-func NewIPLeaseManager(cidr string, defaultLeaseTime time.Duration, store store.LeaseStore) (*IPLeaseManager, error) {
+func NewIPLeaseManager(cidr string, defaultLeaseTime time.Duration, store store.LeaseStore) (IPManager, error) {
 	_, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidCIDR, err)

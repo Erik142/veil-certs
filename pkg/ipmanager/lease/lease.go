@@ -33,13 +33,18 @@ func (self Lease) Prefix() (netip.Prefix, error) {
 
 func (self Lease) IPNet() (*net.IPNet, error) {
 	ip, subnet, err := net.ParseCIDR(self.String())
-	subnet.IP = ip
+	if err != nil {
+		return nil, err
+	}
+	if subnet != nil {
+		subnet.IP = ip
+	}
 
 	return subnet, err
 }
 
 func (self Lease) String() string {
-	if self.IPAddress.String() == "" || self.bits == 0 {
+	if self.IPAddress == nil || self.IPAddress.String() == "<nil>" || self.bits == 0 {
 		return ""
 	}
 
