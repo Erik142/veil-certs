@@ -1,4 +1,4 @@
-FROM rvolosatovs/protoc:5 AS protoc
+FROM rvolosatovs/protoc:6 AS protoc
 WORKDIR /app
 # Copy source code
 COPY . .
