@@ -4,7 +4,7 @@ go 1.24.3
 
 require (
 	github.com/sirupsen/logrus v1.9.3
-	github.com/slackhq/nebula v1.9.6
+	github.com/slackhq/nebula v1.9.7
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.76.0
