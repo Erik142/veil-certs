@@ -3,7 +3,7 @@ module github.com/Erik142/veil-certs
 go 1.24.3
 
 require (
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/slackhq/nebula v1.9.7
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
